@@ -274,69 +274,70 @@ Aturan:
         if os.path.exists(normalized_path):
             os.unlink(normalized_path)
 
-        # STT via MiMo ASR (fallback to Groq if rate limited)
+        # STT via Groq Whisper (primary, best for Indonesian)
+        # Fallback to MiMo ASR if Groq fails
         user_text = ""
-        mime_type = "audio/wav" if audio_ext == "wav" else "audio/mpeg"
-        audio_b64_str = f"data:{mime_type};base64,{base64.b64encode(audio_bytes).decode()}"
 
+        # Primary: Groq Whisper
+        form = aiohttp.FormData()
+        form.add_field("file", audio_bytes, filename=f"audio.{audio_ext}", content_type=f"audio/{audio_ext}")
+        form.add_field("model", "whisper-large-v3")
+        form.add_field("language", "id")
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.post(
-                    f"{MIMO_API_URL}/chat/completions",
-                    headers={
-                        "Authorization": f"Bearer {MIMO_API_KEY}",
-                        "Content-Type": "application/json",
-                    },
-                    json={
-                        "model": MIMO_ASR_MODEL,
-                        "messages": [
-                            {
-                                "role": "user",
-                                "content": [
-                                    {
-                                        "type": "input_audio",
-                                        "input_audio": {
-                                            "data": audio_b64_str,
-                                            "format": "wav" if audio_ext == "wav" else "mp3"
-                                        }
-                                    }
-                                ]
-                            }
-                        ]
-                    },
+                    f"{GROQ_API_URL}/audio/transcriptions",
+                    headers={"Authorization": f"Bearer {GROQ_API_KEY}"},
+                    data=form,
                 ) as resp:
                     if resp.status == 200:
                         result = await resp.json()
-                        choices = result.get("choices", [])
-                        if choices:
-                            user_text = choices[0].get("message", {}).get("content", "").strip()
+                        user_text = result.get("text", "").strip()
                     else:
-                        print(f"[STT] MiMo ASR failed ({resp.status}), falling back to Groq")
+                        print(f"[STT] Groq failed ({resp.status}), trying MiMo ASR")
         except Exception as e:
-            print(f"[STT] MiMo ASR error: {e}, falling back to Groq")
+            print(f"[STT] Groq error: {e}, trying MiMo ASR")
 
-        # Fallback to Groq STT
+        # Fallback: MiMo ASR
         if not user_text:
-            print("[STT] Using Groq whisper fallback")
-            form = aiohttp.FormData()
-            form.add_field("file", audio_bytes, filename=f"audio.{audio_ext}", content_type=f"audio/{audio_ext}")
-            form.add_field("model", "whisper-large-v3")
-            form.add_field("language", "id")
+            print("[STT] Using MiMo ASR fallback")
+            mime_type = "audio/wav" if audio_ext == "wav" else "audio/mpeg"
+            audio_b64_str = f"data:{mime_type};base64,{base64.b64encode(audio_bytes).decode()}"
             try:
                 async with aiohttp.ClientSession() as session:
                     async with session.post(
-                        f"{GROQ_API_URL}/audio/transcriptions",
-                        headers={"Authorization": f"Bearer {GROQ_API_KEY}"},
-                        data=form,
+                        f"{MIMO_API_URL}/chat/completions",
+                        headers={
+                            "Authorization": f"Bearer {MIMO_API_KEY}",
+                            "Content-Type": "application/json",
+                        },
+                        json={
+                            "model": MIMO_ASR_MODEL,
+                            "messages": [
+                                {
+                                    "role": "user",
+                                    "content": [
+                                        {
+                                            "type": "input_audio",
+                                            "input_audio": {
+                                                "data": audio_b64_str,
+                                                "format": "wav" if audio_ext == "wav" else "mp3"
+                                            }
+                                        }
+                                    ]
+                                }
+                            ]
+                        },
                     ) as resp:
                         if resp.status == 200:
                             result = await resp.json()
-                            user_text = result.get("text", "").strip()
+                            choices = result.get("choices", [])
+                            if choices:
+                                user_text = choices[0].get("message", {}).get("content", "").strip()
                         else:
-                            error = await resp.text()
-                            return {"error": f"STT failed (both MiMo and Groq): {error}"}
+                            print(f"[STT] MiMo ASR also failed ({resp.status})")
             except Exception as e:
-                return {"error": f"STT failed: {e}"}
+                print(f"[STT] MiMo ASR error: {e}")
 
         if not user_text:
             return {"error": "No speech detected"}
