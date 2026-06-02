@@ -26,11 +26,16 @@ from hermes_context import build_system_prompt, handle_voice_command, execute_to
 
 load_dotenv(Path(__file__).parent / ".env")
 
-GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
+GROQ_API_KEY=os.environ.get("GROQ_API_KEY", "")
 GROQ_API_URL = "https://api.groq.com/openai/v1"
-GC_API_KEY = os.environ.get("GC_API_KEY", "")
+GC_API_KEY=os.environ.get("GC_API_KEY", "")
 GC_API_URL = "https://api.generalcompute.com/v1"
 GC_MODEL = "minimax-m2.7"
+MIMO_API_KEY=os.environ.get("MIMO_API_KEY", "")
+MIMO_API_URL = "https://api.xiaomimimo.com/v1"
+MIMO_LLM_MODEL = "mimo-v2-flash"  # Fast & cheap for voice
+MIMO_ASR_MODEL = "mimo-v2.5-asr"
+MIMO_TTS_MODEL = "mimo-v2.5-tts"
 PORT = 8082
 
 # Password (set via VOICE_PASSWORD env or default)
@@ -71,6 +76,68 @@ def check_token(token: str) -> bool:
         _auth_tokens.pop(token, None)
         return False
     return True
+
+
+async def mimo_tts(text: str) -> str | None:
+    """Generate TTS audio using MiMo TTS API. Returns WAV bytes as base64 or None."""
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.post(
+                f"{MIMO_API_URL}/audio/speech",
+                headers={
+                    "Authorization": f"Bearer {MIMO_API_KEY}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "model": MIMO_TTS_MODEL,
+                    "input": text,
+                    "voice": "alloy",  # MiMo uses OpenAI-compatible voice names
+                    "response_format": "wav",
+                },
+            ) as resp:
+                if resp.status != 200:
+                    error = await resp.text()
+                    print(f"[MIMO TTS] Failed: {error[:200]}")
+                    return None
+                audio_bytes = await resp.read()
+                if len(audio_bytes) < 100:
+                    print(f"[MIMO TTS] Audio too small: {len(audio_bytes)} bytes")
+                    return None
+                print(f"[MIMO TTS] Generated {len(audio_bytes)} bytes")
+                return base64.b64encode(audio_bytes).decode()
+    except Exception as e:
+        print(f"[MIMO TTS] Error: {e}")
+        return None
+
+
+async def fallback_tts(text: str) -> str | None:
+    """Fallback TTS using edge-tts. Returns WAV bytes as base64 or None."""
+    try:
+        with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as f:
+            tts_path = f.name
+        proc = await asyncio.create_subprocess_exec(
+            "edge-tts", "--voice", "id-ID-ArdiNeural", "--rate", "+30%",
+            "--text", text, "--write-media", tts_path,
+            stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
+        await proc.wait()
+        if not os.path.exists(tts_path):
+            return None
+        wav_path = tts_path.replace(".mp3", ".wav")
+        proc2 = await asyncio.create_subprocess_exec(
+            "ffmpeg", "-y", "-i", tts_path, "-ar", "24000", "-ac", "1", "-f", "wav", wav_path,
+            stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
+        await proc2.wait()
+        if os.path.exists(wav_path):
+            with open(wav_path, "rb") as f:
+                audio_b64 = base64.b64encode(f.read()).decode()
+            os.unlink(tts_path)
+            os.unlink(wav_path)
+            return audio_b64
+        os.unlink(tts_path)
+        return None
+    except Exception as e:
+        print(f"[Fallback TTS] Error: {e}")
+        return None
 
 
 async def send_to_telegram(user_text: str, assistant_text: str):
@@ -190,13 +257,13 @@ Aturan:
 
         form = aiohttp.FormData()
         form.add_field("file", audio_bytes, filename=f"audio.{audio_ext}", content_type=f"audio/{audio_ext}")
-        form.add_field("model", "whisper-large-v3")
+        form.add_field("model", MIMO_ASR_MODEL)
         form.add_field("language", "id")
 
         async with aiohttp.ClientSession() as session:
             async with session.post(
-                f"{GROQ_API_URL}/audio/transcriptions",
-                headers={"Authorization": f"Bearer {GROQ_API_KEY}"},
+                f"{MIMO_API_URL}/audio/transcriptions",
+                headers={"Authorization": f"Bearer {MIMO_API_KEY}"},
                 data=form,
             ) as resp:
                 if resp.status != 200:
@@ -213,27 +280,12 @@ Aturan:
         if cmd_result:
             print(f"[CMD] Command detected: {user_text}")
             asyncio.create_task(send_to_telegram(user_text, cmd_result))
-            # Generate TTS for the result
-            with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as f:
-                tts_path = f.name
-            proc = await asyncio.create_subprocess_exec(
-                "edge-tts", "--voice", "id-ID-ArdiNeural", "--rate", "+30%",
-                "--text", cmd_result, "--write-media", tts_path,
-                stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
-            await proc.wait()
-            if os.path.exists(tts_path):
-                wav_path = tts_path.replace(".mp3", ".wav")
-                proc2 = await asyncio.create_subprocess_exec(
-                    "ffmpeg", "-y", "-i", tts_path, "-ar", "24000", "-ac", "1", "-f", "wav", wav_path,
-                    stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
-                await proc2.wait()
-                if os.path.exists(wav_path):
-                    with open(wav_path, "rb") as f:
-                        audio_b64 = base64.b64encode(f.read()).decode()
-                    os.unlink(tts_path)
-                    os.unlink(wav_path)
-                    return {"user_text": user_text, "assistant_text": cmd_result, "audio": audio_b64}
-                os.unlink(tts_path)
+            # Generate TTS using MiMo (fallback to edge-tts)
+            audio_b64 = await mimo_tts(cmd_result)
+            if not audio_b64:
+                audio_b64 = await fallback_tts(cmd_result)
+            if audio_b64:
+                return {"user_text": user_text, "assistant_text": cmd_result, "audio": audio_b64}
             return {"user_text": user_text, "assistant_text": cmd_result}
 
         # 2. LLM
@@ -247,10 +299,10 @@ Aturan:
         for round_num in range(max_tool_rounds + 1):
             async with aiohttp.ClientSession() as session:
                 async with session.post(
-                    f"{GC_API_URL}/chat/completions",
-                    headers={"Authorization": f"Bearer {GC_API_KEY}", "Content-Type": "application/json"},
+                    f"{MIMO_API_URL}/chat/completions",
+                    headers={"Authorization": f"Bearer {MIMO_API_KEY}", "Content-Type": "application/json"},
                     json={
-                        "model": GC_MODEL,
+                        "model": MIMO_LLM_MODEL,
                         "messages": [
                             {"role": "system", "content": system_prompt}
                         ] + conversation,
@@ -289,36 +341,13 @@ Aturan:
 
         conversation.append({"role": "assistant", "content": assistant_text})
 
-        # 3. TTS
-        with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as f:
-            tts_path = f.name
-
-        proc = await asyncio.create_subprocess_exec(
-            "edge-tts",
-            "--voice", "id-ID-ArdiNeural",
-            "--rate", "+30%",
-            "--text", assistant_text,
-            "--write-media", tts_path,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
-        await proc.wait()
-
-        if not os.path.exists(tts_path):
-            return {"error": "TTS failed"}
-
-        wav_path = tts_path.replace(".mp3", ".wav")
-        proc2 = await asyncio.create_subprocess_exec(
-            "ffmpeg", "-y", "-i", tts_path, "-ar", "24000", "-ac", "1", "-f", "wav", wav_path,
-            stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
-        )
-        await proc2.wait()
-
-        with open(wav_path, "rb") as f:
-            audio_b64 = base64.b64encode(f.read()).decode()
-
-        os.unlink(tts_path)
-        os.unlink(wav_path)
+        # 3. TTS (MiMo with edge-tts fallback)
+        audio_b64 = await mimo_tts(assistant_text)
+        if not audio_b64:
+            print("[TTS] MiMo TTS failed, falling back to edge-tts")
+            audio_b64 = await fallback_tts(assistant_text)
+        if not audio_b64:
+            return {"error": "TTS failed (both MiMo and edge-tts)"}
 
         # 4. Send to Telegram Voice topic (async, don't block response)
         asyncio.create_task(send_to_telegram(user_text, assistant_text))
