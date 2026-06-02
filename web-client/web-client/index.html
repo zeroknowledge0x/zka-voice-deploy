@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>ZKA Voice</title>
+<style>
+:root {
+  --bg: #000000;
+  --card: #1c1c1e;
+  --card-border: #2c2c2e;
+  --text: #ffffff;
+  --text-secondary: #98989f;
+  --accent: #0a84ff;
+  --accent-glow: rgba(10, 132, 255, 0.3);
+  --red: #ff453a;
+  --red-glow: rgba(255, 69, 58, 0.4);
+  --green: #30d158;
+  --orange: #ff9f0a;
+  --safe-top: env(safe-area-inset-top, 20px);
+  --safe-bottom: env(safe-area-inset-bottom, 20px);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+html, body {
+  height: 100%;
+  font-family: -apple-system, 'SF Pro Display', 'Helvetica Neue', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  overflow: hidden;
+  touch-action: manipulation;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+  padding: var(--safe-top) 16px var(--safe-bottom);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 0;
+  gap: 10px;
+}
+
+.avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 22px;
+  background: linear-gradient(135deg, var(--accent), #5856d6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  box-shadow: 0 0 20px var(--accent-glow);
+}
+
+.header-info h1 {
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.3px;
+}
+
+.header-info .status-text {
+  font-size: 12px;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--green);
+  display: inline-block;
+}
+
+.status-dot.error { background: var(--red); }
+.status-dot.connecting { background: var(--orange); animation: blink 1s infinite; }
+
+@keyframes blink { 50% { opacity: 0.3; } }
+
+.chat-area {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 0;
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+}
+
+.chat-area::-webkit-scrollbar { display: none; }
+
+.msg {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+  max-width: 85%;
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } }
+
+.msg.user { align-self: flex-end; flex-direction: row-reverse; margin-left: auto; }
+
+.msg-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 14px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  margin-top: 2px;
+}
+
+.msg.user .msg-avatar { background: var(--accent); }
+.msg.assistant .msg-avatar { background: #5856d6; }
+
+.msg-bubble {
+  padding: 10px 14px;
+  border-radius: 18px;
+  font-size: 15px;
+  line-height: 1.4;
+  position: relative;
+}
+
+.msg.user .msg-bubble {
+  background: var(--accent);
+  border-bottom-right-radius: 6px;
+}
+
+.msg.assistant .msg-bubble {
+  background: var(--card);
+  border: 1px solid var(--card-border);
+  border-bottom-left-radius: 6px;
+}
+
+.msg-bubble .play-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 6px;
+  padding: 4px 10px;
+  border-radius: 12px;
+  background: rgba(255,255,255,0.1);
+  border: none;
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.processing {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: var(--card);
+  border: 1px solid var(--card-border);
+  border-radius: 18px;
+  border-bottom-left-radius: 6px;
+  margin-bottom: 16px;
+  max-width: 200px;
+  animation: fadeIn 0.3s ease;
+}
+
+.processing-text {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.typing-dots {
+  display: flex;
+  gap: 4px;
+}
+
+.typing-dots span {
+  width: 6px;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--accent);
+  animation: typing 1.4s infinite;
+}
+
+.typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+.typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes typing {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+  30% { transform: translateY(-4px); opacity: 1; }
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: 12px;
+  color: var(--text-secondary);
+}
+
+.empty-state .icon { font-size: 48px; opacity: 0.5; }
+.empty-state p { font-size: 14px; }
+
+.controls {
+  padding: 12px 0 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.wave-container {
+  height: 32px;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.wave-container.active { opacity: 1; }
+
+.wave-bar {
+  width: 3px;
+  height: 8px;
+  border-radius: 2px;
+  background: var(--accent);
+  animation: wave 0.8s ease-in-out infinite;
+}
+
+.wave-bar:nth-child(1) { animation-delay: 0s; }
+.wave-bar:nth-child(2) { animation-delay: 0.1s; }
+.wave-bar:nth-child(3) { animation-delay: 0.2s; }
+.wave-bar:nth-child(4) { animation-delay: 0.3s; }
+.wave-bar:nth-child(5) { animation-delay: 0.4s; }
+.wave-bar:nth-child(6) { animation-delay: 0.3s; }
+.wave-bar:nth-child(7) { animation-delay: 0.2s; }
+.wave-bar:nth-child(8) { animation-delay: 0.1s; }
+.wave-bar:nth-child(9) { animation-delay: 0s; }
+
+@keyframes wave {
+  0%, 100% { height: 8px; opacity: 0.4; }
+  50% { height: 28px; opacity: 1; }
+}
+
+.record-btn {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  border: 3px solid var(--text-secondary);
+  background: transparent;
+  cursor: pointer;
+  position: relative;
+  transition: all 0.2s;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.record-btn::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--red);
+  transition: all 0.2s;
+}
+
+.record-btn:active::after {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+}
+
+.record-btn.recording {
+  border-color: var(--red);
+  animation: pulse-ring 1.5s infinite;
+}
+
+.record-btn.recording::after {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+}
+
+.record-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+@keyframes pulse-ring {
+  0% { box-shadow: 0 0 0 0 var(--red-glow); }
+  70% { box-shadow: 0 0 0 16px rgba(255, 69, 58, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(255, 69, 58, 0); }
+}
+
+.bottom-actions {
+  display: flex;
+  gap: 24px;
+}
+
+.action-btn {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 13px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  transition: color 0.2s;
+}
+
+.action-btn:active { color: var(--text); }
+.action-btn .icon { font-size: 20px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="avatar">🤖</div>
+  <div class="header-info">
+    <h1>ZKA</h1>
+    <div class="status-text">
+      <span class="status-dot connecting" id="statusDot"></span>
+      <span id="statusLabel">Menghubungkan...</span>
+    </div>
+  </div>
+</div>
+
+<div class="chat-area" id="chatArea">
+  <div class="empty-state" id="emptyState">
+    <div class="icon">🎙️</div>
+    <p>Tahan tombol untuk mulai bicara</p>
+  </div>
+</div>
+
+<div class="controls">
+  <div class="wave-container" id="waveContainer">
+    <div class="wave-bar"></div>
+    <div class="wave-bar"></div>
+    <div class="wave-bar"></div>
+    <div class="wave-bar"></div>
+    <div class="wave-bar"></div>
+    <div class="wave-bar"></div>
+    <div class="wave-bar"></div>
+    <div class="wave-bar"></div>
+    <div class="wave-bar"></div>
+  </div>
+  
+  <button class="record-btn" id="recordBtn"></button>
+  
+  <div class="bottom-actions">
+    <button class="action-btn" onclick="resetChat()">
+      <span class="icon">🔄</span>
+      <span>Reset</span>
+    </button>
+  </div>
+</div>
+
+<script>
+const chatArea = document.getElementById('chatArea');
+const emptyState = document.getElementById('emptyState');
+const recordBtn = document.getElementById('recordBtn');
+const statusDot = document.getElementById('statusDot');
+const statusLabel = document.getElementById('statusLabel');
+const waveContainer = document.getElementById('waveContainer');
+
+let sessionId = localStorage.getItem("zka_sid") || Math.random().toString(36).slice(2);
+localStorage.setItem("zka_sid", sessionId);
+
+let eventSource = null;
+let mediaRecorder = null;
+let audioChunks = [];
+let isRecording = false;
+let isProcessing = false;
+let audioContext = null;
+
+function connectSSE() {
+  if (eventSource) {
+    eventSource.close();
+    eventSource = null;
+  }
+
+  eventSource = new EventSource("/events/" + sessionId);
+
+  eventSource.onopen = () => {
+    statusDot.className = "status-dot";
+    statusLabel.textContent = "Online";
+    recordBtn.disabled = false;
+  };
+
+  eventSource.onmessage = (event) => {
+    let data;
+    try { data = JSON.parse(event.data); } catch (e) { return; }
+
+    switch (data.type) {
+      case "processing":
+        showProcessing(data.stage);
+        break;
+      case "response":
+        hideProcessing();
+        addMessage("user", data.user_text);
+        addMessage("assistant", data.assistant_text, data.audio);
+        isProcessing = false;
+        break;
+      case "error":
+        hideProcessing();
+        statusLabel.textContent = data.message;
+        statusDot.className = "status-dot error";
+        isProcessing = false;
+        setTimeout(() => {
+          statusDot.className = "status-dot";
+          statusLabel.textContent = "Online";
+        }, 3000);
+        break;
+      case "reset":
+        chatArea.innerHTML = "";
+        chatArea.appendChild(emptyState);
+        emptyState.style.display = "flex";
+        break;
+    }
+  };
+
+  eventSource.onerror = () => {
+    statusDot.className = "status-dot connecting";
+    statusLabel.textContent = "Menghubungkan...";
+    recordBtn.disabled = true;
+    setTimeout(connectSSE, 2000);
+  };
+}
+
+function showProcessing(stage) {
+  let proc = document.getElementById("processing");
+  if (!proc) {
+    proc = document.createElement("div");
+    proc.id = "processing";
+    proc.className = "processing";
+    proc.innerHTML = `
+      <div class="typing-dots"><span></span><span></span><span></span></div>
+      <span class="processing-text"></span>
+    `;
+    chatArea.appendChild(proc);
+  }
+  proc.querySelector(".processing-text").textContent = stage;
+  emptyState.style.display = "none";
+  chatArea.scrollTop = chatArea.scrollHeight;
+}
+
+function hideProcessing() {
+  const proc = document.getElementById("processing");
+  if (proc) proc.remove();
+}
+
+function addMessage(role, text, hasAudio) {
+  emptyState.style.display = "none";
+  hideProcessing();
+
+  const msg = document.createElement("div");
+  msg.className = "msg " + role;
+
+  const avatar = document.createElement("div");
+  avatar.className = "msg-avatar";
+  avatar.textContent = role === "user" ? "👤" : "🤖";
+
+  const bubble = document.createElement("div");
+  bubble.className = "msg-bubble";
+  bubble.textContent = text;
+
+  if (hasAudio && role === "assistant") {
+    const playBtn = document.createElement("button");
+    playBtn.className = "play-btn";
+    playBtn.textContent = "🔊 Putar ulang";
+    playBtn.onclick = () => playBase64Audio(hasAudio);
+    bubble.appendChild(playBtn);
+  }
+
+  msg.appendChild(avatar);
+  msg.appendChild(bubble);
+  chatArea.appendChild(msg);
+  requestAnimationFrame(() => {
+    chatArea.scrollTop = chatArea.scrollHeight;
+  });
+}
+
+function getSupportedMimeType() {
+  const types = ["audio/webm;codecs=opus", "audio/mp4", "audio/aac", "audio/wav"];
+  for (const type of types) {
+    if (MediaRecorder.isTypeSupported(type)) return type;
+  }
+  return "";
+}
+
+async function startRecording() {
+  if (isRecording || isProcessing) return;
+  isRecording = true;
+  recordBtn.classList.add("recording");
+  waveContainer.classList.add("active");
+  statusLabel.textContent = "Merekam...";
+  statusDot.className = "status-dot";
+
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+    });
+
+    const mimeType = getSupportedMimeType();
+    mediaRecorder = mimeType
+      ? new MediaRecorder(stream, { mimeType })
+      : new MediaRecorder(stream);
+
+    audioChunks = [];
+
+    mediaRecorder.ondataavailable = (event) => {
+      if (event.data.size > 0) audioChunks.push(event.data);
+    };
+
+    mediaRecorder.onstop = async () => {
+      const blob = new Blob(audioChunks, { type: mediaRecorder.mimeType || "audio/webm" });
+
+      const form = new FormData();
+      form.append("file", blob, "audio." + (mimeType || "webm").split(";")[0].split("/")[1]);
+
+      try {
+        const resp = await fetch("/process-audio?sid=" + encodeURIComponent(sessionId), {
+          method: "POST",
+          body: form,
+        });
+
+        if (!resp.ok) {
+          hideProcessing();
+          statusLabel.textContent = "Upload gagal";
+          statusDot.className = "status-dot error";
+          isProcessing = false;
+        }
+      } catch (err) {
+        hideProcessing();
+        statusLabel.textContent = "Error";
+        statusDot.className = "status-dot error";
+        isProcessing = false;
+      }
+
+      stream.getTracks().forEach(t => t.stop());
+    };
+
+    mediaRecorder.start(100);
+  } catch (err) {
+    statusLabel.textContent = "Mic error";
+    statusDot.className = "status-dot error";
+    isRecording = false;
+    recordBtn.classList.remove("recording");
+    waveContainer.classList.remove("active");
+  }
+}
+
+function stopRecording() {
+  if (!isRecording) return;
+  isRecording = false;
+  isProcessing = true;
+  recordBtn.classList.remove("recording");
+  waveContainer.classList.remove("active");
+  statusLabel.textContent = "Memproses...";
+
+  if (mediaRecorder && mediaRecorder.state === "recording") {
+    mediaRecorder.stop();
+  } else {
+    isProcessing = false;
+    statusLabel.textContent = "Online";
+  }
+}
+
+async function playAudio(arrayBuffer) {
+  try {
+    if (!audioContext || audioContext.state === "closed") {
+      audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    const buffer = await audioContext.decodeAudioData(arrayBuffer.slice(0));
+    const source = audioContext.createBufferSource();
+    source.buffer = buffer;
+    source.connect(audioContext.destination);
+    source.start(0);
+    statusLabel.textContent = "ZKA ngomong...";
+    source.onended = () => {
+      statusLabel.textContent = "Online";
+      isProcessing = false;
+    };
+  } catch (err) {
+    console.error("Playback error:", err);
+    statusLabel.textContent = "Online";
+    isProcessing = false;
+  }
+}
+
+function playBase64Audio(base64) {
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  playAudio(bytes.buffer);
+}
+
+function resetChat() {
+  conversations[sessionId] = [];
+  if (eventSource && eventSource.readyState === EventSource.OPEN) {
+    eventSource.send("reset");
+  }
+}
+
+recordBtn.addEventListener("touchstart", (e) => { e.preventDefault(); startRecording(); }, { passive: false });
+recordBtn.addEventListener("touchend", (e) => { e.preventDefault(); stopRecording(); });
+recordBtn.addEventListener("touchcancel", (e) => { e.preventDefault(); stopRecording(); });
+recordBtn.addEventListener("mousedown", startRecording);
+recordBtn.addEventListener("mouseup", stopRecording);
+recordBtn.addEventListener("mouseleave", () => { if (isRecording) stopRecording(); });
+
+connectSSE();
+</script>
+</body>
+</html>

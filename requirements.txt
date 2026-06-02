@@ -1,0 +1,4 @@
+aiohttp==3.11.18
+python-dotenv==1.1.0
+groq==0.31.0
+edge-tts==7.0.0
