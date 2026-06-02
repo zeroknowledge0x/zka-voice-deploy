@@ -346,10 +346,10 @@ Aturan:
         if cmd_result:
             print(f"[CMD] Command detected: {user_text}")
             asyncio.create_task(send_to_telegram(user_text, cmd_result))
-            # Generate TTS using MiMo (fallback to edge-tts)
-            audio_b64 = await mimo_tts(cmd_result)
+            # Generate TTS using Edge TTS (Indonesian male)
+            audio_b64 = await fallback_tts(cmd_result)
             if not audio_b64:
-                audio_b64 = await fallback_tts(cmd_result)
+                audio_b64 = await mimo_tts(cmd_result)
             if audio_b64:
                 return {"user_text": user_text, "assistant_text": cmd_result, "audio": audio_b64}
             return {"user_text": user_text, "assistant_text": cmd_result}
@@ -407,13 +407,13 @@ Aturan:
 
         conversation.append({"role": "assistant", "content": assistant_text})
 
-        # 3. TTS (MiMo with edge-tts fallback)
-        audio_b64 = await mimo_tts(assistant_text)
+        # 3. TTS (Edge TTS Indonesian male voice, MiMo LLM response)
+        audio_b64 = await fallback_tts(assistant_text)
         if not audio_b64:
-            print("[TTS] MiMo TTS failed, falling back to edge-tts")
-            audio_b64 = await fallback_tts(assistant_text)
+            print("[TTS] Edge TTS failed, trying MiMo TTS")
+            audio_b64 = await mimo_tts(assistant_text)
         if not audio_b64:
-            return {"error": "TTS failed (both MiMo and edge-tts)"}
+            return {"error": "TTS failed (both edge-tts and MiMo)"}
 
         # 4. Send to Telegram Voice topic (async, don't block response)
         asyncio.create_task(send_to_telegram(user_text, assistant_text))
