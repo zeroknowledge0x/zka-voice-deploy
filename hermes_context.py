@@ -43,10 +43,11 @@ def format_cronjob_detail(job):
     name = job.get("name", "Unknown")
     job_id = job.get("id", "?")
     enabled = job.get("enabled", True)
-    schedule = job.get("schedule", "?")
+    sched_raw = job.get("schedule", "?")
+    schedule = sched_raw.get("display", str(sched_raw)) if isinstance(sched_raw, dict) else str(sched_raw)
     last_run = job.get("last_run_at", "Never")
-    provider = job.get("provider", job.get("model", {}).get("provider", "default"))
-    model = job.get("model", {}).get("model", "default")
+    provider = job.get("provider", "default")
+    model = job.get("model", "default")
     prompt = job.get("prompt", "")[:200]
     deliver = job.get("deliver", "origin")
     skills = job.get("skills", [])
@@ -86,9 +87,10 @@ def list_all_cronjobs_summary():
         status = "✅" if j.get("enabled", True) else "⏸️"
         name = j.get("name", "?")
         jid = j.get("id", "?")[:12]
-        schedule = j.get("schedule", "?")
-        provider = j.get("provider", j.get("model", {}).get("provider", "def"))
-        model = j.get("model", {}).get("model", "default")
+        sched_raw = j.get("schedule", "?")
+        schedule = sched_raw.get("display", str(sched_raw)) if isinstance(sched_raw, dict) else str(sched_raw)
+        provider = j.get("provider", "default")
+        model = j.get("model", "default")
         mode = "Script" if j.get("no_agent") else "LLM"
         skills = ", ".join(j.get("skills", []))
         deliver = j.get("deliver", "origin")
@@ -360,9 +362,10 @@ def execute_tool(tool_name, args):
         for j in jobs:
             status = "✅" if j.get("enabled", True) else "⏸️"
             name = j.get("name", "?")
-            schedule = j.get("schedule", "?")
-            provider = j.get("provider", j.get("model", {}).get("provider", "def"))
-            model = j.get("model", {}).get("model", "default")
+            sched_raw = j.get("schedule", "?")
+            schedule = sched_raw.get("display", str(sched_raw)) if isinstance(sched_raw, dict) else str(sched_raw)
+            provider = j.get("provider", "default")
+            model = j.get("model", "default")
             mode = "Script" if j.get("no_agent") else "LLM"
             lines.append(f"{status} {name} | {schedule} | {mode} | {provider}/{model}")
         return "\n".join(lines)
