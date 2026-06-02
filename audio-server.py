@@ -83,28 +83,47 @@ async def mimo_tts(text: str) -> str | None:
     try:
         async with aiohttp.ClientSession() as session:
             async with session.post(
-                f"{MIMO_API_URL}/audio/speech",
+                f"{MIMO_API_URL}/chat/completions",
                 headers={
                     "Authorization": f"Bearer {MIMO_API_KEY}",
                     "Content-Type": "application/json",
                 },
                 json={
                     "model": MIMO_TTS_MODEL,
-                    "input": text,
-                    "voice": "alloy",  # MiMo uses OpenAI-compatible voice names
-                    "response_format": "wav",
+                    "messages": [
+                        {"role": "user", "content": "Berbicara dengan nada santai dan friendly, kecepatan sedang."},
+                        {"role": "assistant", "content": text}
+                    ],
+                    "audio": {
+                        "format": "wav",
+                        "voice": "Chloe"
+                    }
                 },
             ) as resp:
                 if resp.status != 200:
                     error = await resp.text()
                     print(f"[MIMO TTS] Failed: {error[:200]}")
                     return None
-                audio_bytes = await resp.read()
-                if len(audio_bytes) < 100:
-                    print(f"[MIMO TTS] Audio too small: {len(audio_bytes)} bytes")
+                result = await resp.json()
+                # Extract audio from response
+                choices = result.get("choices", [])
+                if not choices:
+                    print("[MIMO TTS] No choices in response")
                     return None
-                print(f"[MIMO TTS] Generated {len(audio_bytes)} bytes")
-                return base64.b64encode(audio_bytes).decode()
+                message = choices[0].get("message", {})
+                audio_data = message.get("audio", {})
+                if isinstance(audio_data, dict):
+                    audio_b64 = audio_data.get("data", "")
+                elif isinstance(audio_data, str):
+                    audio_b64 = audio_data
+                else:
+                    print(f"[MIMO TTS] Unexpected audio format: {type(audio_data)}")
+                    return None
+                if not audio_b64:
+                    print("[MIMO TTS] No audio data in response")
+                    return None
+                print(f"[MIMO TTS] Generated audio ({len(audio_b64)} chars base64)")
+                return audio_b64
     except Exception as e:
         print(f"[MIMO TTS] Error: {e}")
         return None
@@ -255,22 +274,48 @@ Aturan:
         if os.path.exists(normalized_path):
             os.unlink(normalized_path)
 
-        form = aiohttp.FormData()
-        form.add_field("file", audio_bytes, filename=f"audio.{audio_ext}", content_type=f"audio/{audio_ext}")
-        form.add_field("model", MIMO_ASR_MODEL)
-        form.add_field("language", "id")
+        # STT via MiMo ASR (chat/completions with input_audio)
+        audio_b64_str = base64.b64encode(audio_bytes).decode()
+        
+        # Determine mime type for MiMo
+        mime_map = {"m4a": "audio/mpeg", "wav": "audio/wav", "mp3": "audio/mpeg", "ogg": "audio/wav"}
+        mime_type = mime_map.get(audio_ext, "audio/wav")
 
         async with aiohttp.ClientSession() as session:
             async with session.post(
-                f"{MIMO_API_URL}/audio/transcriptions",
-                headers={"Authorization": f"Bearer {MIMO_API_KEY}"},
-                data=form,
+                f"{MIMO_API_URL}/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {MIMO_API_KEY}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "model": MIMO_ASR_MODEL,
+                    "messages": [
+                        {
+                            "role": "user",
+                            "content": [
+                                {
+                                    "type": "input_audio",
+                                    "input_audio": {
+                                        "data": audio_b64_str,
+                                        "format": "wav" if audio_ext == "wav" else "mp3"
+                                    }
+                                }
+                            ]
+                        }
+                    ]
+                },
             ) as resp:
                 if resp.status != 200:
                     error = await resp.text()
                     return {"error": f"STT failed: {error}"}
                 result = await resp.json()
-                user_text = result.get("text", "").strip()
+                # MiMo ASR returns transcription in choices[0].message.content
+                choices = result.get("choices", [])
+                if choices:
+                    user_text = choices[0].get("message", {}).get("content", "").strip()
+                else:
+                    user_text = ""
 
         if not user_text:
             return {"error": "No speech detected"}
