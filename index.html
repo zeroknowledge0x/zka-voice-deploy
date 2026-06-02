@@ -1,0 +1,1009 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>ZKA Voice</title>
+<style>
+:root {
+  --bg: #000000;
+  --card: #1c1c1e;
+  --card-border: #2c2c2e;
+  --text: #ffffff;
+  --text-secondary: #98989f;
+  --accent: #0a84ff;
+  --accent-glow: rgba(10, 132, 255, 0.3);
+  --red: #ff453a;
+  --red-glow: rgba(255, 69, 58, 0.4);
+  --green: #30d158;
+  --orange: #ff9f0a;
+  --safe-top: env(safe-area-inset-top, 20px);
+  --safe-bottom: env(safe-area-inset-bottom, 20px);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+html, body {
+  height: 100%;
+  font-family: -apple-system, 'SF Pro Display', 'Helvetica Neue', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  overflow: hidden;
+  touch-action: manipulation;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+  padding: var(--safe-top) 16px var(--safe-bottom);
+}
+
+/* Login Screen */
+.login-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: 24px;
+  animation: fadeIn 0.5s ease;
+}
+
+.login-screen .logo {
+  width: 80px;
+  height: 80px;
+  border-radius: 40px;
+  background: linear-gradient(135deg, var(--accent), #5856d6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 40px;
+  box-shadow: 0 0 40px var(--accent-glow);
+}
+
+.login-screen h1 {
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+}
+
+.login-screen .subtitle {
+  font-size: 14px;
+  color: var(--text-secondary);
+  text-align: center;
+  margin-top: -16px;
+}
+
+.login-form {
+  width: 100%;
+  max-width: 300px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.login-form input {
+  width: 100%;
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: 1px solid var(--card-border);
+  background: var(--card);
+  color: var(--text);
+  font-size: 16px;
+  outline: none;
+  transition: border-color 0.2s;
+  -webkit-appearance: none;
+}
+
+.login-form input:focus {
+  border-color: var(--accent);
+}
+
+.login-form input::placeholder {
+  color: var(--text-secondary);
+}
+
+.login-form button {
+  width: 100%;
+  padding: 14px;
+  border-radius: 12px;
+  border: none;
+  background: var(--accent);
+  color: white;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.login-form button:active {
+  opacity: 0.7;
+}
+
+.login-error {
+  color: var(--red);
+  font-size: 13px;
+  text-align: center;
+  min-height: 20px;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 0;
+  gap: 10px;
+}
+
+.avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 22px;
+  background: linear-gradient(135deg, var(--accent), #5856d6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  box-shadow: 0 0 20px var(--accent-glow);
+}
+
+.header-info h1 {
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.3px;
+}
+
+.header-info .status-text {
+  font-size: 12px;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--green);
+  display: inline-block;
+}
+
+.status-dot.error { background: var(--red); }
+.status-dot.connecting { background: var(--orange); animation: blink 1s infinite; }
+
+@keyframes blink { 50% { opacity: 0.3; } }
+
+.chat-area {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 0;
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+}
+
+.chat-area::-webkit-scrollbar { display: none; }
+
+.msg {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+  max-width: 85%;
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } }
+
+.msg.user { align-self: flex-end; flex-direction: row-reverse; margin-left: auto; }
+
+.msg-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 14px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  margin-top: 2px;
+}
+
+.msg.user .msg-avatar { background: var(--accent); }
+.msg.assistant .msg-avatar { background: #5856d6; }
+
+.msg-bubble {
+  padding: 10px 14px;
+  border-radius: 18px;
+  font-size: 15px;
+  line-height: 1.4;
+  position: relative;
+}
+
+.msg.user .msg-bubble {
+  background: var(--accent);
+  border-bottom-right-radius: 6px;
+}
+
+.msg.assistant .msg-bubble {
+  background: var(--card);
+  border: 1px solid var(--card-border);
+  border-bottom-left-radius: 6px;
+}
+
+.msg-bubble .play-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 6px;
+  padding: 4px 10px;
+  border-radius: 12px;
+  background: rgba(255,255,255,0.1);
+  border: none;
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.msg-bubble .tg-sync {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--text-secondary);
+  opacity: 0.6;
+}
+
+.processing {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: var(--card);
+  border: 1px solid var(--card-border);
+  border-radius: 18px;
+  border-bottom-left-radius: 6px;
+  margin-bottom: 16px;
+  max-width: 200px;
+  animation: fadeIn 0.3s ease;
+}
+
+.processing-text {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.typing-dots {
+  display: flex;
+  gap: 4px;
+}
+
+.typing-dots span {
+  width: 6px;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--accent);
+  animation: typing 1.4s infinite;
+}
+
+.typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+.typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes typing {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+  30% { transform: translateY(-4px); opacity: 1; }
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: 12px;
+  color: var(--text-secondary);
+}
+
+.empty-state .icon { font-size: 48px; opacity: 0.5; }
+.empty-state p { font-size: 14px; }
+
+.controls {
+  padding: 12px 0 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.wave-container {
+  height: 32px;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.wave-container.active { opacity: 1; }
+
+.wave-bar {
+  width: 3px;
+  height: 8px;
+  border-radius: 2px;
+  background: var(--accent);
+  animation: wave 0.8s ease-in-out infinite;
+}
+
+.wave-bar:nth-child(1) { animation-delay: 0s; }
+.wave-bar:nth-child(2) { animation-delay: 0.1s; }
+.wave-bar:nth-child(3) { animation-delay: 0.2s; }
+.wave-bar:nth-child(4) { animation-delay: 0.3s; }
+.wave-bar:nth-child(5) { animation-delay: 0.4s; }
+.wave-bar:nth-child(6) { animation-delay: 0.3s; }
+.wave-bar:nth-child(7) { animation-delay: 0.2s; }
+.wave-bar:nth-child(8) { animation-delay: 0.1s; }
+.wave-bar:nth-child(9) { animation-delay: 0s; }
+
+@keyframes wave {
+  0%, 100% { height: 8px; opacity: 0.4; }
+  50% { height: 28px; opacity: 1; }
+}
+
+.record-btn {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  border: 3px solid var(--text-secondary);
+  background: transparent;
+  cursor: pointer;
+  position: relative;
+  transition: all 0.2s;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.record-btn::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--red);
+  transition: all 0.2s;
+}
+
+.record-btn:active::after {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+}
+
+.record-btn.recording {
+  border-color: var(--red);
+  animation: pulse-ring 1.5s infinite;
+}
+
+.record-btn.recording::after {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+}
+
+.record-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+@keyframes pulse-ring {
+  0% { box-shadow: 0 0 0 0 var(--red-glow); }
+  70% { box-shadow: 0 0 0 16px rgba(255, 69, 58, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(255, 69, 58, 0); }
+}
+
+.bottom-actions {
+  display: flex;
+  gap: 24px;
+}
+
+.auto-mode-btn {
+  background: none;
+  border: 1px solid var(--card-border);
+  color: var(--text-secondary);
+  font-size: 13px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.2s;
+  padding: 4px 8px;
+  border-radius: 8px;
+}
+
+.auto-mode-btn.active {
+  border-color: var(--green);
+  color: var(--green);
+  background: rgba(48, 209, 88, 0.1);
+}
+
+.action-btn {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 13px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  transition: color 0.2s;
+}
+
+.action-btn:active { color: var(--text); }
+.action-btn .icon { font-size: 20px; }
+
+.hidden { display: none !important; }
+
+/* Mode toggle */
+.mode-toggle {
+  display: flex;
+  background: var(--card-bg, rgba(255,255,255,0.05));
+  border-radius: 20px;
+  padding: 3px;
+  margin: 8px auto 0;
+  width: fit-content;
+  gap: 2px;
+  border: 1px solid var(--card-border, rgba(255,255,255,0.1));
+}
+.mode-btn {
+  background: transparent;
+  border: none;
+  border-radius: 18px;
+  color: var(--text-secondary, rgba(255,255,255,0.4));
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 16px;
+  cursor: pointer;
+  transition: all 0.2s;
+  letter-spacing: 0.3px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.mode-btn.active {
+  background: rgba(255,255,255,0.12);
+  color: var(--text, #fff);
+}
+.mode-btn:active { transform: scale(0.95); }
+</style>
+</head>
+<body>
+
+<!-- Login Screen -->
+<div class="login-screen" id="loginScreen">
+  <div class="logo">🤖</div>
+  <h1>ZKA Voice</h1>
+  <p class="subtitle">Voice-to-voice AI assistant<br>Masukkan password untuk akses</p>
+  <div class="login-form">
+    <input type="password" id="passwordInput" placeholder="Password" autocomplete="off">
+    <button onclick="doLogin()" id="loginBtn">Masuk</button>
+    <div class="login-error" id="loginError"></div>
+  </div>
+</div>
+
+<!-- Chat Screen (hidden until auth) -->
+<div class="header hidden" id="chatHeader">
+  <div class="avatar">🤖</div>
+  <div class="header-info">
+    <h1>ZKA</h1>
+    <div class="status-text">
+      <span class="status-dot connecting" id="statusDot"></span>
+      <span id="statusLabel">Menghubungkan...</span>
+    </div>
+  </div>
+</div>
+
+<div class="chat-area hidden" id="chatArea">
+  <div class="empty-state" id="emptyState">
+    <div class="icon">🎙️</div>
+    <p>Tahan tombol untuk mulai bicara</p>
+    <p style="font-size:12px;opacity:0.5;margin-top:4px">📡 Tersinkron ke Telegram</p>
+    <p style="font-size:12px;opacity:0.5">🎙️ Tekan Auto untuk mode handsfree</p>
+  </div>
+</div>
+
+<div class="controls hidden" id="chatControls">
+  <div class="wave-container" id="waveContainer">
+    <div class="wave-bar"></div>
+    <div class="wave-bar"></div>
+    <div class="wave-bar"></div>
+    <div class="wave-bar"></div>
+    <div class="wave-bar"></div>
+    <div class="wave-bar"></div>
+    <div class="wave-bar"></div>
+    <div class="wave-bar"></div>
+    <div class="wave-bar"></div>
+  </div>
+  
+  <button class="record-btn" id="recordBtn"></button>
+  
+  <div class="bottom-actions">
+    <div class="mode-toggle">
+      <button class="mode-btn active" id="modeChat" onclick="setMode('chat')">💬 Chat</button>
+      <button class="mode-btn" id="modeCommand" onclick="setMode('command')">⚡ Command</button>
+    </div>
+    <button class="auto-mode-btn" id="autoModeBtn" onclick="toggleAutoMode()">
+      <span class="icon">🔄</span>
+      <span>Auto</span>
+    </button>
+    <button class="action-btn" onclick="resetChat()">
+      <span class="icon">🔄</span>
+      <span>Reset</span>
+    </button>
+    <button class="action-btn" onclick="doLogout()">
+      <span class="icon">🚪</span>
+      <span>Keluar</span>
+    </button>
+  </div>
+</div>
+
+<script>
+const loginScreen = document.getElementById('loginScreen');
+const chatHeader = document.getElementById('chatHeader');
+const chatArea = document.getElementById('chatArea');
+const chatControls = document.getElementById('chatControls');
+const passwordInput = document.getElementById('passwordInput');
+const loginError = document.getElementById('loginError');
+const emptyState = document.getElementById('emptyState');
+const recordBtn = document.getElementById('recordBtn');
+const statusDot = document.getElementById('statusDot');
+const statusLabel = document.getElementById('statusLabel');
+const waveContainer = document.getElementById('waveContainer');
+
+let sessionId = localStorage.getItem("zka_sid") || Math.random().toString(36).slice(2);
+localStorage.setItem("zka_sid", sessionId);
+
+let authToken = localStorage.getItem("zka_token") || "";
+let eventSource = null;
+let mediaRecorder = null;
+let audioChunks = [];
+let isRecording = false;
+let isProcessing = false;
+let audioContext = null;
+let autoMode = false;
+let currentMode = 'chat'; // 'chat' or 'command'
+let silenceTimer = null;
+
+// Check if already logged in
+if (authToken) {
+  showChat();
+}
+
+// Login
+passwordInput.addEventListener("keydown", (e) => { if (e.key === "Enter") doLogin(); });
+
+async function doLogin() {
+  const password = passwordInput.value.trim();
+  if (!password) return;
+  
+  loginError.textContent = "Memeriksa...";
+  try {
+    const resp = await fetch("/auth", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password })
+    });
+    const data = await resp.json();
+    if (data.ok && data.token) {
+      authToken = data.token;
+      localStorage.setItem("zka_token", authToken);
+      loginError.textContent = "";
+      showChat();
+    } else {
+      loginError.textContent = data.error || "Password salah";
+      passwordInput.value = "";
+    }
+  } catch (err) {
+    loginError.textContent = "Gagal connect ke server";
+  }
+}
+
+function doLogout() {
+  authToken = "";
+  localStorage.removeItem("zka_token");
+  if (eventSource) eventSource.close();
+  loginScreen.classList.remove("hidden");
+  chatHeader.classList.add("hidden");
+  chatArea.classList.add("hidden");
+  chatControls.classList.add("hidden");
+  passwordInput.value = "";
+}
+
+function showChat() {
+  loginScreen.classList.add("hidden");
+  chatHeader.classList.remove("hidden");
+  chatArea.classList.remove("hidden");
+  chatControls.classList.remove("hidden");
+  connectSSE();
+}
+
+function connectSSE() {
+  if (eventSource) {
+    eventSource.close();
+    eventSource = null;
+  }
+
+  eventSource = new EventSource("/events/" + sessionId);
+
+  eventSource.onopen = () => {
+    statusDot.className = "status-dot";
+    statusLabel.textContent = "Online";
+    recordBtn.disabled = false;
+  };
+
+  eventSource.onmessage = (event) => {
+    let data;
+    try { data = JSON.parse(event.data); } catch (e) { return; }
+
+    switch (data.type) {
+      case "processing":
+        showProcessing(data.stage);
+        break;
+      case "response":
+        hideProcessing();
+        addMessage("user", data.user_text);
+        addMessage("assistant", data.assistant_text, data.audio);
+        isProcessing = false;
+        break;
+      case "error":
+        hideProcessing();
+        statusLabel.textContent = data.message;
+        statusDot.className = "status-dot error";
+        isProcessing = false;
+        setTimeout(() => {
+          statusDot.className = "status-dot";
+          statusLabel.textContent = "Online";
+        }, 3000);
+        break;
+      case "reset":
+        chatArea.innerHTML = "";
+        chatArea.appendChild(emptyState);
+        emptyState.style.display = "flex";
+        break;
+    }
+  };
+
+  eventSource.onerror = () => {
+    statusDot.className = "status-dot connecting";
+    statusLabel.textContent = "Menghubungkan...";
+    recordBtn.disabled = true;
+    setTimeout(connectSSE, 2000);
+  };
+}
+
+function showProcessing(stage) {
+  let proc = document.getElementById("processing");
+  if (!proc) {
+    proc = document.createElement("div");
+    proc.id = "processing";
+    proc.className = "processing";
+    proc.innerHTML = `
+      <div class="typing-dots"><span></span><span></span><span></span></div>
+      <span class="processing-text"></span>
+    `;
+    chatArea.appendChild(proc);
+  }
+  proc.querySelector(".processing-text").textContent = stage;
+  emptyState.style.display = "none";
+  chatArea.scrollTop = chatArea.scrollHeight;
+}
+
+function hideProcessing() {
+  const proc = document.getElementById("processing");
+  if (proc) proc.remove();
+}
+
+function addMessage(role, text, hasAudio) {
+  emptyState.style.display = "none";
+  hideProcessing();
+
+  const msg = document.createElement("div");
+  msg.className = "msg " + role;
+
+  const avatar = document.createElement("div");
+  avatar.className = "msg-avatar";
+  avatar.textContent = role === "user" ? "👤" : "🤖";
+
+  const bubble = document.createElement("div");
+  bubble.className = "msg-bubble";
+  bubble.textContent = text;
+
+  if (hasAudio && role === "assistant") {
+    const playBtn = document.createElement("button");
+    playBtn.className = "play-btn";
+    playBtn.textContent = "🔊 Putar ulang";
+    playBtn.onclick = () => playBase64Audio(hasAudio);
+    bubble.appendChild(playBtn);
+
+    // Telegram sync indicator
+    const tgSync = document.createElement("div");
+    tgSync.className = "tg-sync";
+    tgSync.textContent = "📡 Tersinkron ke Telegram";
+    bubble.appendChild(tgSync);
+
+    // Auto-play audio response
+    setTimeout(() => playBase64Audio(hasAudio), 300);
+  }
+
+  msg.appendChild(avatar);
+  msg.appendChild(bubble);
+  chatArea.appendChild(msg);
+  requestAnimationFrame(() => {
+    chatArea.scrollTop = chatArea.scrollHeight;
+  });
+}
+
+function getSupportedMimeType() {
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+  const types = isIOS
+    ? ["audio/mp4", "audio/aac", "audio/wav", "audio/webm;codecs=opus"]
+    : ["audio/webm;codecs=opus", "audio/mp4", "audio/aac", "audio/wav"];
+  for (const type of types) {
+    if (MediaRecorder.isTypeSupported(type)) return type;
+  }
+  return "";
+}
+
+async function startRecording() {
+  if (isRecording || isProcessing) return;
+  isRecording = true;
+  recordBtn.classList.add("recording");
+  waveContainer.classList.add("active");
+  statusLabel.textContent = "Merekam...";
+  statusDot.className = "status-dot";
+
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+    });
+
+    const mimeType = getSupportedMimeType();
+    mediaRecorder = mimeType
+      ? new MediaRecorder(stream, { mimeType })
+      : new MediaRecorder(stream);
+
+    audioChunks = [];
+
+    // Set up silence detection for auto mode
+    let analyserNode = null;
+    if (autoMode && audioContext) {
+      const source = audioContext.createMediaStreamSource(stream);
+      analyserNode = audioContext.createAnalyser();
+      analyserNode.fftSize = 2048;
+      source.connect(analyserNode);
+    }
+
+    mediaRecorder.ondataavailable = (event) => {
+      if (event.data.size > 0) audioChunks.push(event.data);
+    };
+
+    mediaRecorder.onstop = async () => {
+      const blob = new Blob(audioChunks, { type: mediaRecorder.mimeType || "audio/webm" });
+      const contentType = mediaRecorder.mimeType || "audio/webm";
+
+      // Validate blob
+      if (audioChunks.length === 0 || blob.size < 1000) {
+        hideProcessing();
+        statusLabel.textContent = "Audio terlalu pendek";
+        statusDot.className = "status-dot error";
+        isProcessing = false;
+        stream.getTracks().forEach(t => t.stop());
+        return;
+      }
+
+      // Convert blob to base64
+      const reader = new FileReader();
+      reader.onload = async () => {
+        const base64 = reader.result.split(",")[1];
+        try {
+          showProcessing("Mendengarkan...");
+          const resp = await fetch("/process-audio", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ audio: base64, content_type: contentType, sid: sessionId, token: authToken, mode: currentMode }),
+          });
+
+          if (resp.status === 401) {
+            hideProcessing();
+            statusLabel.textContent = "Session expired";
+            doLogout();
+            return;
+          }
+
+          if (resp.ok) {
+            const data = await resp.json();
+            hideProcessing();
+            if (data.error) {
+              statusLabel.textContent = data.error;
+              statusDot.className = "status-dot error";
+            } else {
+              addMessage("user", data.user_text || "(voice)");
+              addMessage("assistant", data.assistant_text || "(no text)", data.audio);
+            }
+          } else {
+            hideProcessing();
+            statusLabel.textContent = "Upload gagal";
+            statusDot.className = "status-dot error";
+          }
+          isProcessing = false;
+        } catch (err) {
+          hideProcessing();
+          statusLabel.textContent = "Error: " + err.message;
+          statusDot.className = "status-dot error";
+          isProcessing = false;
+        }
+      };
+      reader.readAsDataURL(blob);
+
+      stream.getTracks().forEach(t => t.stop());
+    };
+
+    mediaRecorder.start();
+    
+    // Start silence detection for auto mode
+    if (autoMode && analyserNode) {
+      detectSilence(analyserNode, stream);
+    }
+  } catch (err) {
+    statusLabel.textContent = "Mic error";
+    statusDot.className = "status-dot error";
+    isRecording = false;
+    recordBtn.classList.remove("recording");
+    waveContainer.classList.remove("active");
+  }
+}
+
+function stopRecording() {
+  if (!isRecording) return;
+  isRecording = false;
+  isProcessing = true;
+  recordBtn.classList.remove("recording");
+  waveContainer.classList.remove("active");
+  statusLabel.textContent = "Memproses...";
+
+  if (mediaRecorder && mediaRecorder.state === "recording") {
+    mediaRecorder.stop();
+  } else {
+    isProcessing = false;
+    statusLabel.textContent = "Online";
+  }
+}
+
+async function playAudio(arrayBuffer) {
+  try {
+    if (!audioContext || audioContext.state === "closed") {
+      audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    const buffer = await audioContext.decodeAudioData(arrayBuffer.slice(0));
+    const source = audioContext.createBufferSource();
+    source.buffer = buffer;
+    source.connect(audioContext.destination);
+    source.start(0);
+    statusLabel.textContent = "ZKA ngomong...";
+    source.onended = () => {
+      statusLabel.textContent = "Online";
+      isProcessing = false;
+      // Auto mode: start recording again after ZKA finishes
+      if (autoMode) {
+        setTimeout(() => {
+          if (autoMode && !isRecording && !isProcessing) {
+            startRecording();
+          }
+        }, 500);
+      }
+    };
+  } catch (err) {
+    console.error("Playback error:", err);
+    statusLabel.textContent = "Online";
+    isProcessing = false;
+  }
+}
+
+function playBase64Audio(base64) {
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  playAudio(bytes.buffer);
+}
+
+function resetChat() {
+  conversations[sessionId] = [];
+  if (eventSource && eventSource.readyState === EventSource.OPEN) {
+    eventSource.send("reset");
+  }
+}
+
+function setMode(mode) {
+  currentMode = mode;
+  document.getElementById('modeChat').classList.toggle('active', mode === 'chat');
+  document.getElementById('modeCommand').classList.toggle('active', mode === 'command');
+  
+  // Update header
+  const headerTitle = document.querySelector('.header-title h1');
+  if (headerTitle) {
+    headerTitle.textContent = mode === 'command' ? 'ZKA Command' : 'ZKA Voice';
+  }
+  
+  // Visual feedback
+  const label = document.getElementById('statusLabel');
+  if (label) {
+    label.textContent = mode === 'command' ? 'Mode: Command ⚡' : 'Mode: Chat 💬';
+    setTimeout(() => { label.textContent = 'Tahan untuk bicara'; }, 1500);
+  }
+}
+
+function toggleAutoMode() {
+  autoMode = !autoMode;
+  const btn = document.getElementById("autoModeBtn");
+  btn.classList.toggle("active", autoMode);
+  if (autoMode) {
+    statusLabel.textContent = "Auto mode ON - mulai bicara!";
+    // Start recording immediately
+    if (!isRecording && !isProcessing) {
+      setTimeout(() => startRecording(), 300);
+    }
+  } else {
+    statusLabel.textContent = "Auto mode OFF";
+    if (silenceTimer) {
+      clearTimeout(silenceTimer);
+      silenceTimer = null;
+    }
+  }
+}
+
+function detectSilence(analyserNode, stream) {
+  if (!autoMode || !analyserNode || !isRecording) return;
+  
+  const data = new Uint8Array(analyserNode.frequencyBinCount);
+  analyserNode.getByteFrequencyData(data);
+  
+  // Calculate average volume
+  const avg = data.reduce((a, b) => a + b, 0) / data.length;
+  
+  if (avg < 10) { // Silence threshold
+    if (!silenceTimer) {
+      silenceTimer = setTimeout(() => {
+        if (isRecording && autoMode) {
+          stopRecording();
+        }
+        silenceTimer = null;
+      }, 1500); // 1.5 seconds of silence = stop recording
+    }
+  } else {
+    if (silenceTimer) {
+      clearTimeout(silenceTimer);
+      silenceTimer = null;
+    }
+  }
+  
+  if (isRecording && autoMode) {
+    requestAnimationFrame(() => detectSilence(analyserNode, stream));
+  }
+}
+
+recordBtn.addEventListener("touchstart", (e) => { e.preventDefault(); startRecording(); }, { passive: false });
+recordBtn.addEventListener("touchend", (e) => { e.preventDefault(); stopRecording(); });
+recordBtn.addEventListener("touchcancel", (e) => { e.preventDefault(); stopRecording(); });
+recordBtn.addEventListener("mousedown", startRecording);
+recordBtn.addEventListener("mouseup", stopRecording);
+recordBtn.addEventListener("mouseleave", () => { if (isRecording) stopRecording(); });
+</script>
+</body>
+</html>

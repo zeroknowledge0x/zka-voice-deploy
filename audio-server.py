@@ -87,12 +87,31 @@ async def send_to_telegram(user_text: str, assistant_text: str):
         print(f"[TG] Error: {e}")
 
 
-async def process_audio(session_id: str, audio_bytes: bytes, content_type: str):
+async def process_audio(session_id: str, audio_bytes: bytes, content_type: str, mode: str = "chat"):
     conversation = conversations[session_id]
     try:
         global _saved_init_segment
-        # Build dynamic system prompt with live Hermes context
-        system_prompt = build_system_prompt()
+        # Build system prompt based on mode
+        if mode == "command":
+            system_prompt = build_system_prompt()  # Full control center with tools
+        else:
+            # Chat mode — simple conversational prompt
+            from hermes_context import get_wib_now, load_user_profile
+            now = get_wib_now()
+            user_profile = load_user_profile()
+            system_prompt = f"""Kamu adalah ZKA (Zero Knowledge Agent) — AI assistant suara yang santai dan friendly.
+
+WAKTU: {now}
+
+{user_profile}
+
+Aturan:
+- Bahasa Indonesia, informal/slang (loe, gue, dong, sih)
+- Jawaban SINGKAT untuk voice (maks 2-3 kalimat)
+- Natural, kayak ngobrol sama temen
+- JANGAN gunakan tool call, cukup jawab natural
+- Kalau user minta aksi teknis (edit cronjob, cek status, dll), sarankan switch ke mode Command
+"""
         # Debug logging
         print(f"[DEBUG] Session: {session_id}, Content-Type: {content_type}, Size: {len(audio_bytes)} bytes")
         print(f"[DEBUG] First 20 bytes: {audio_bytes[:20]}")
@@ -214,12 +233,12 @@ async def process_audio(session_id: str, audio_bytes: bytes, content_type: str):
                 os.unlink(tts_path)
             return {"user_text": user_text, "assistant_text": cmd_result}
 
-        # 2. LLM (with tool execution loop)
+        # 2. LLM
         conversation.append({"role": "user", "content": user_text})
         if len(conversation) > 20:
             conversation[:] = conversation[-20:]
 
-        max_tool_rounds = 3  # Max tool calls per turn
+        max_tool_rounds = 3 if mode == "command" else 0  # Tool calls only in command mode
         assistant_text = ""
         
         for round_num in range(max_tool_rounds + 1):
@@ -360,6 +379,7 @@ async def process_handler(request):
         content_type = data.get("content_type", "audio/webm")
         session_id = data.get("sid") or str(uuid.uuid4())
         token = data.get("token", "")
+        mode = data.get("mode", "chat")  # 'chat' or 'command'
 
         # Check auth
         if not check_token(token):
@@ -371,8 +391,8 @@ async def process_handler(request):
         except Exception:
             return web.json_response({"error": "Invalid base64 audio"}, status=400)
 
-        # Process synchronously (no SSE needed)
-        result = await process_audio(session_id, audio_bytes, content_type)
+        # Process synchronously
+        result = await process_audio(session_id, audio_bytes, content_type, mode=mode)
         return web.json_response(result)
     except Exception as e:
         return web.json_response({"error": str(e)}, status=500)
