@@ -28,6 +28,9 @@ load_dotenv(Path(__file__).parent / ".env")
 
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
 GROQ_API_URL = "https://api.groq.com/openai/v1"
+GC_API_KEY = os.environ.get("GC_API_KEY", "")
+GC_API_URL = "https://api.generalcompute.com/v1"
+GC_MODEL = "minimax-m2.7"
 PORT = 8082
 
 # Password (set via VOICE_PASSWORD env or default)
@@ -244,10 +247,10 @@ Aturan:
         for round_num in range(max_tool_rounds + 1):
             async with aiohttp.ClientSession() as session:
                 async with session.post(
-                    f"{GROQ_API_URL}/chat/completions",
-                    headers={"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"},
+                    f"{GC_API_URL}/chat/completions",
+                    headers={"Authorization": f"Bearer {GC_API_KEY}", "Content-Type": "application/json"},
                     json={
-                        "model": "llama-3.3-70b-versatile",
+                        "model": GC_MODEL,
                         "messages": [
                             {"role": "system", "content": system_prompt}
                         ] + conversation,
