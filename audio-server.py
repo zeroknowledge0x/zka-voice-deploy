@@ -275,11 +275,9 @@ Aturan:
             os.unlink(normalized_path)
 
         # STT via MiMo ASR (chat/completions with input_audio)
-        audio_b64_str = base64.b64encode(audio_bytes).decode()
-        
-        # Determine mime type for MiMo
-        mime_map = {"m4a": "audio/mpeg", "wav": "audio/wav", "mp3": "audio/mpeg", "ogg": "audio/wav"}
-        mime_type = mime_map.get(audio_ext, "audio/wav")
+        # MiMo requires data URL format: data:audio/wav;base64,...
+        mime_type = "audio/wav" if audio_ext == "wav" else "audio/mpeg"
+        audio_b64_str = f"data:{mime_type};base64,{base64.b64encode(audio_bytes).decode()}"
 
         async with aiohttp.ClientSession() as session:
             async with session.post(
