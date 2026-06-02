@@ -343,6 +343,14 @@ def find_job_by_name_or_id(query):
 
 def execute_tool(tool_name, args):
     """Execute a tool and return the result as text."""
+    # Ensure args is a dict (LLM might return string)
+    if isinstance(args, str):
+        try:
+            args = json.loads(args)
+        except (json.JSONDecodeError, TypeError):
+            args = {}
+    if not isinstance(args, dict):
+        args = {}
     
     if tool_name == "cronjob_list":
         jobs = load_cronjobs()
@@ -632,22 +640,37 @@ def execute_tool(tool_name, args):
 
 def parse_tool_call(text):
     """Parse tool call from LLM response. Returns (tool_name, args) or None."""
+    if not text:
+        return None
+    
     # Look for ```tool ... ``` block
     match = re.search(r'```tool\s*\n(.*?)\n```', text, re.DOTALL)
     if match:
         try:
             data = json.loads(match.group(1).strip())
-            return data.get("tool"), data.get("args", {})
+            tool = data.get("tool")
+            args = data.get("args", {})
+            if isinstance(args, str):
+                try:
+                    args = json.loads(args)
+                except (json.JSONDecodeError, TypeError):
+                    args = {}
+            return tool, args if isinstance(args, dict) else {}
         except json.JSONDecodeError:
             pass
     
     # Also try raw JSON tool call
-    match = re.search(r'\{"tool"\s*:\s*"(\w+)"\s*,\s*"args"\s*:\s*(\{.*?\})\}', text, re.DOTALL)
+    match = re.search(r'\{"tool"\s*:\s*"(\w+)"\s*,\s*"args"\s*:\s*(\{.*?\})\s*\}', text, re.DOTALL)
     if match:
         try:
             return match.group(1), json.loads(match.group(2))
         except json.JSONDecodeError:
             pass
+    
+    # Try more flexible pattern for args that might be empty object
+    match = re.search(r'\{"tool"\s*:\s*"(\w+)"\s*,\s*"args"\s*:\s*(\{\s*\})\s*\}', text)
+    if match:
+        return match.group(1), {}
     
     return None
 
